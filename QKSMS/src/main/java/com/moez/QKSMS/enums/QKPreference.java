@@ -33,7 +33,6 @@ public enum QKPreference {
     HIDE_AVATAR_RECEIVED("pref_key_hide_avatar_received", false),
 
     MESSAGE_COUNT("pref_key_message_count", false),
-    TIMESTAMPS_24H("pref_key_24h", false),
 
     // General
     DELAYED_MESSAGING("pref_key_delayed", false),
@@ -42,6 +41,10 @@ public enum QKPreference {
     DELIVERY_CONFIRMATIONS("pref_key_delivery", false),
     DELIVERY_TOAST("pref_key_delivery_toast", true),
     DELIVERY_VIBRATE("pref_key_delivery_vibrate", true),
+
+    AUTO_DELETE("pref_key_delete_old_messages", false),
+    AUTO_DELETE_UNREAD("pref_key_delete_old_unread_messages", "7"), // This type of preference only accepts strings
+    AUTO_DELETE_READ("pref_key_delete_old_read_messages", "7"),
 
     AUTO_EMOJI("pref_key_auto_emoji", false),
     TEXT_FORMATTING("pref_key_markdown_enabled", false),
@@ -96,7 +99,9 @@ public enum QKPreference {
     CONVERSATION_THEME("conversation_theme"),
 
     // Storage
-    COMPOSE_DRAFT("compose_draft", "");
+    COMPOSE_DRAFT("compose_draft", ""),
+    LAST_AUTO_DELETE_CHECK("last_auto_delete_check", 0),
+    MIGRATED_ICON("migrated_icon", false);
 
     private String mKey;
     private Object mDefaultValue;

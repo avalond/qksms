@@ -35,11 +35,13 @@ import com.moez.QKSMS.common.DialogHelper;
 import com.moez.QKSMS.common.DonationManager;
 import com.moez.QKSMS.common.ListviewHelper;
 import com.moez.QKSMS.common.LiveViewManager;
+import com.moez.QKSMS.common.QKPreferences;
 import com.moez.QKSMS.common.utils.DateFormatter;
 import com.moez.QKSMS.common.utils.KeyboardUtils;
 import com.moez.QKSMS.common.utils.PackageUtils;
 import com.moez.QKSMS.enums.QKPreference;
 import com.moez.QKSMS.receiver.NightModeAutoReceiver;
+import com.moez.QKSMS.service.DeleteOldMessagesService;
 import com.moez.QKSMS.transaction.EndlessJabber;
 import com.moez.QKSMS.transaction.NotificationManager;
 import com.moez.QKSMS.transaction.SmsHelper;
@@ -80,7 +82,7 @@ public class SettingsFragment extends PreferenceFragment implements Preference.O
     public static final String CATEGORY_APPEARANCE_SYSTEM_BARS = "pref_key_category_appearance_system_bars";
 
     public static final String THEME = "pref_key_theme";
-    public static final String ICON = "pref_key_icon";
+    public static final String ICON = "pref_key_icon_dark";
     public static final String STATUS_TINT = "pref_key_status_tint";
     public static final String NAVIGATION_TINT = "pref_key_navigation_tint";
     public static final String BACKGROUND = "pref_key_background";
@@ -105,6 +107,9 @@ public class SettingsFragment extends PreferenceFragment implements Preference.O
     public static final String DELIVERY_REPORTS = "pref_key_delivery";
     public static final String DELIVERY_TOAST = "pref_key_delivery_toast";
     public static final String DELIVERY_VIBRATE = "pref_key_delivery_vibrate";
+    public static final String DELETE_OLD_MESSAGES = "pref_key_delete_old_messages";
+    public static final String DELETE_UNREAD_MESSAGES = "pref_key_delete_old_unread_messages";
+    public static final String DELETE_READ_MESSAGES = "pref_key_delete_old_read_messages";
     public static final String YAPPY = "pref_key_endlessjabber";
     public static final String BLOCKED_ENABLED = "pref_key_blocked_enabled";
     public static final String BLOCKED_SENDERS = "pref_key_blocked_senders";
@@ -116,7 +121,6 @@ public class SettingsFragment extends PreferenceFragment implements Preference.O
     public static final String SPLIT_COUNTER = "pref_key_split_counter";
     public static final String LONG_AS_MMS = "pref_key_long_as_mms";
     public static final String LONG_AS_MMS_AFTER = "pref_key_long_as_mms_after";
-    public static final String TIMESTAMPS_24H = "pref_key_24h";
     public static final String NOTIFICATIONS = "pref_key_notifications";
     public static final String NOTIFICATION_LED = "pref_key_led";
     public static final String NOTIFICATION_LED_COLOR = "pref_key_theme_led";
@@ -284,6 +288,16 @@ public class SettingsFragment extends PreferenceFragment implements Preference.O
             font_weight.setSummary(mFontWeights[i == 2 ? 0 : 1]);
         }
 
+        EditTextPreference deleteUnread = (EditTextPreference) findPreference(DELETE_UNREAD_MESSAGES);
+        if (deleteUnread != null) {
+            deleteUnread.setSummary(mContext.getString(R.string.pref_delete_old_messages_unread_summary, QKPreferences.getString(QKPreference.AUTO_DELETE_UNREAD)));
+        }
+
+        EditTextPreference deleteRead = (EditTextPreference) findPreference(DELETE_READ_MESSAGES);
+        if (deleteRead != null) {
+            deleteRead.setSummary(mContext.getString(R.string.pref_delete_old_messages_read_summary, QKPreferences.getString(QKPreference.AUTO_DELETE_READ)));
+        }
+
         Preference day_start = findPreference(DAY_START);
         if (day_start != null) {
             day_start.setSummary(DateFormatter.getSummaryTimestamp(mContext, mPrefs.getString(DAY_START, "6:00")));
@@ -411,6 +425,9 @@ public class SettingsFragment extends PreferenceFragment implements Preference.O
             case BACKGROUND:
                 ThemeManager.setTheme(ThemeManager.Theme.fromString((String) newValue));
                 break;
+            case ICON:
+                ThemeManager.setIcon(mContext, (Boolean) newValue);
+                break;
             case STATUS_TINT:
                 ThemeManager.setStatusBarTintEnabled(mContext, (Boolean) newValue);
                 break;
@@ -440,6 +457,33 @@ public class SettingsFragment extends PreferenceFragment implements Preference.O
             case NIGHT_START:
                 updateAlarmManager(mContext, true);
                 break;
+
+            case DELETE_OLD_MESSAGES:
+                if ((Boolean) newValue) {
+                    new QKDialog()
+                            .setContext(mContext)
+                            .setTitle(R.string.pref_delete_old_messages)
+                            .setMessage(R.string.dialog_delete_old_messages)
+                            .setPositiveButton(R.string.yes, v -> {
+                                QKPreferences.setBoolean(QKPreference.AUTO_DELETE, true);
+                                ((CheckBoxPreference) preference).setChecked(true);
+                                DeleteOldMessagesService.setupAutoDeleteAlarm(mContext);
+                                mContext.makeToast(R.string.toast_deleting_old_messages);
+                            })
+                            .setNegativeButton(R.string.cancel, null)
+                            .show();
+                    return false;
+                }
+                break;
+
+            case DELETE_UNREAD_MESSAGES:
+                preference.setSummary(mContext.getString(R.string.pref_delete_old_messages_unread_summary, newValue));
+                break;
+
+            case DELETE_READ_MESSAGES:
+                preference.setSummary(mContext.getString(R.string.pref_delete_old_messages_read_summary, newValue));
+                break;
+
             case YAPPY:
                 if ((Boolean) newValue) {
                     try {
@@ -538,16 +582,13 @@ public class SettingsFragment extends PreferenceFragment implements Preference.O
             case BUBBLES:
                 new BubblePreferenceDialog().setContext(mContext).show();
                 break;
-            case ICON:
-                ThemeManager.setIcon(mContext);
-                break;
             case BLOCKED_FUTURE:
                 BlockedNumberDialog.showDialog(mContext);
                 break;
             case SHOULD_I_ANSWER:
                 final String packageName = "org.mistergroup.muzutozvednout";
                 if (!PackageUtils.isAppInstalled(mContext, packageName)) {
-                    String referrer="referrer=utm_source%3Dqksms%26utm_medium%3Dapp%26utm_campaign%3Dqksmssettings";
+                    String referrer = "referrer=utm_source%3Dqksms%26utm_medium%3Dapp%26utm_campaign%3Dqksmssettings";
                     new QKDialog()
                             .setContext(mContext)
                             .setTitle(R.string.dialog_should_i_answer_title)
